@@ -1,0 +1,199 @@
+<html>
+	<head>
+
+				<link rel="stylesheet" type="text/css" href="style.css">
+		<script src="/socket.io/socket.io.js"></script>
+
+		<script src="peer.min.js"></script>
+
+		<script type="text/javascript">
+
+		window.addEventListener('beforeunload', function() {
+			alert('Disconnecting');
+			if (socket != null) {
+				socket.disconnect();
+			}
+
+		});
+
+		var socket = null; 
+
+	/* Get User Media */
+	var my_stream = null;
+
+	// We'll use a global variable to hold on to our id from PeerJS
+	var peer_id = null;
+
+	var peer = null;
+
+	window.URL = window.URL || window.webkitURL || window.mozURL || window.msURL;
+	navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+	if (navigator.getUserMedia) {
+		navigator.getUserMedia({video: true, audio: true}, function(stream) {
+			
+				my_stream = stream;
+				var videoElement = document.getElementById('myvideo');
+				videoElement.src = window.URL.createObjectURL(stream) || stream;
+				document.body.appendChild(videoElement);
+				videoElement.play();
+
+				connectPeer();
+
+			}, function(err) {
+				console.log('Failed to get local stream' ,err);
+		});
+	}
+
+	function connectPeer() {
+		// Register for an API Key:	http://peerjs.com/peerserver
+		//var peer = new Peer({key: '7ifmum8rcw61or'});
+		//peer = new Peer({host: '104.131.82.13', port: 9000, path: '/'});
+		peer = new Peer({host: 'liveweb.itp.io', port: 9000, path: '/'});
+
+
+		// Get an ID from the PeerJS server		
+		peer.on('open', function(id) {
+			console.log('My peer ID is: ' + id);
+			peer_id = id;
+
+			socket = io.connect();
+
+			socket.on('connect', function() {
+				console.log("connect");
+				socket.emit('peerid',peer_id);
+			});
+
+			socket.on('peerid',function(data) {
+				makeCall(data);
+			});
+			socket.on('disconnected',function(data){
+				console.log("Disconnecting " + data);
+				document.body.removeChild(document.getElementById(data));
+
+			});
+		});	
+
+		peer.on('error', function(err) { 
+			console.log(err);
+		});
+
+		peer.on('call', function(incoming_call) {
+			console.log("Got a call!");
+			console.log(incoming_call);
+			incoming_call.answer(my_stream); // Answer the call with our stream from getUserMedia
+			incoming_call.on('stream', function(remoteStream) {  // we receive a getUserMedia stream from the remote caller
+				// And attach it to a video object
+				/*var ovideoElement = document.createElement('video');
+				ovideoElement.src = window.URL.createObjectURL(remoteStream) || remoteStream;
+				ovideoElement.setAttribute("autoplay", "true");		
+				ovideoElement.play();
+				document.body.appendChild(ovideoElement);*/
+
+			});
+		});
+
+		var people = [];	
+		
+		function makeCall(idToCall) {
+			
+			people.push(idToCall);
+			//var idToCall = document.getElementById('tocall').value;
+			console.log("peer: " + peer);
+			var call = peer.call(idToCall, my_stream);
+			console.log("made a call: " + call);
+
+			call.on('stream', function(remoteStream) {
+				console.log("Got remote stream");
+				var ovideoElement = document.createElement('video');
+					ovideoElement.className = ("new")
+
+				ovideoElement.src = window.URL.createObjectURL(remoteStream) || remoteStream;
+				ovideoElement.setAttribute("autoplay", "true");
+
+					ovideoElement.setAttribute("id", idToCall);
+				ovideoElement.play();
+				document.body.appendChild(ovideoElement);
+
+			});
+
+		}
+	
+
+	// Returns a random integer between min (included) and max (excluded)
+// Using Math.round() will give you a non-uniform distribution!
+	
+
+
+	document.getElementById("mix").onclick = function mix(){
+
+		var whichToShow = Math.floor(Math.random()*people.length);
+		console.log("Showing:" + whichToShow);
+		/*
+		var hide = [];
+		for(var i = 0; i < people.length; i++){
+			hide.push(Math.random());
+			if(hide[i]<0.5){
+				hide[i]=0;
+			}else{
+				hide[i]=1;
+			}
+			if(hide[i]==1){
+				for(var j = 0; j < people.length; j++){
+					if(j!=i){
+						hide[j]=0;
+					}
+				}
+			break;
+			}
+
+
+		}
+
+		console.log(hide);
+		*/
+		console.log(people);
+		for (var i = 0; i < people.length; i++) {
+			if (people[i]!= null){
+
+				if (i != whichToShow) {
+					document.getElementById(people[i]).style.visibility="hidden";
+				} else {
+					document.getElementById(people[i]).style.visibility="visible";
+				}
+			}
+			// document.body.removeChild(document.getElementById(people[i]));
+			// ovideoElement.src = window.URL.createObjectURL(remoteStream) || remoteStream;
+			// 	ovideoElement.setAttribute("autoplay", "true");
+			// 	ovideoElement.setAttribute("id", people[i]);
+			// 	ovideoElement.play();
+			/*
+			if(people[i]!= null){
+				if(hide[i]==0){
+					document.getElementById(people[i]).style.visibility="hidden";
+				}else{
+				document.getElementById(people[i]).style.visibility="visible";
+				}
+			}
+			*/
+
+				
+		}
+	}
+
+	};
+
+
+		</script>
+
+	</head>
+	<body>
+			<input type="button" id="mix" value="mix" onClick="mix()">
+			<br /><br />
+		<video id="myvideo" ></video>
+			
+		<!-- <input type="text" id="tocall"> -->
+		<!-- <input type="button" value="call" onClick="makeCall()"> -->
+	
+
+	</body>
+</html>
