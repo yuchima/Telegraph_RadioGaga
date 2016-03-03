@@ -1,28 +1,91 @@
 #define BUTTON 2
-//#define LCD_PINS 12, 11, 10, 9, 8, 7
-//#define LCD_COLUMNS 16
-//#define LCD_ROWS 2
-
+#define SPEAKER 4
+#define TONE 4000
 #define PULSE_THRESHOLD 200
 #define LETTER_SEPARATION 500
-#define WORD_SEPARATION 2000
+#define WORD_SEPARATION 3000
+#define SPEED 300
+
+
+const int led = 4;
+enum { SHORT, LONG, OFF };
+
+const byte morse_dict[26][4] = {
+  { SHORT, LONG,  OFF,   OFF   }, // a
+  { LONG,  SHORT, SHORT, SHORT }, // b
+  { LONG,  SHORT, LONG,  SHORT }, // c
+  { LONG,  SHORT, SHORT, OFF   }, // d
+  { SHORT, OFF,   OFF,   OFF   }, // e
+  { SHORT, SHORT, LONG,  SHORT }, // f
+  { LONG,  LONG,  SHORT, OFF   }, // g
+  { SHORT, SHORT, SHORT, SHORT }, // h
+  { SHORT, SHORT, OFF,   OFF   }, // i
+  { SHORT, LONG,  LONG,  LONG  }, // j
+  { LONG,  SHORT, LONG,  OFF   }, // k
+  { SHORT, LONG,  SHORT, SHORT }, // l
+  { LONG,  LONG,  OFF,   OFF   }, // m
+  { LONG,  SHORT, OFF,   OFF   }, // n
+  { LONG,  LONG,  LONG,  OFF   }, // o
+  { SHORT, LONG,  LONG,  SHORT }, // p
+  { LONG,  LONG,  SHORT, LONG  }, // q
+  { SHORT, LONG,  SHORT, OFF   }, // r
+  { SHORT, SHORT, SHORT, OFF   }, // s
+  { LONG,  OFF,   OFF,   OFF   }, // t
+  { SHORT, SHORT, LONG,  OFF   }, // u
+  { SHORT, SHORT, SHORT, LONG  }, // v
+  { SHORT, LONG,  LONG,  OFF   }, // w
+  { LONG,  SHORT, SHORT, LONG  }, // x
+  { LONG,  SHORT, LONG,  LONG  }, // y
+  { LONG,  LONG,  SHORT, SHORT }, // z
+};
+
+void blink_letter(const char letter) {
+  for (byte i = 0; i < 4; i++) {
+    switch (morse_dict[letter - 97][i]) {
+      case SHORT:
+        digitalWrite(led, HIGH); delay(500);
+        digitalWrite(led, LOW);  delay(500 + SPEED);
+        break;
+      case LONG:
+        digitalWrite(led, HIGH); delay(750);
+        digitalWrite(led, LOW);  delay(750 + SPEED);
+        break;
+      case OFF:
+        digitalWrite(led, LOW);
+        break;
+    }
+  }
+}
+
+void blink_string(const char *str) {
+  unsigned int i = 0;
+
+  while (str[i++] != '\0') {
+    Serial.print(str[i]);
+    blink_letter(str[i]);
+  }
+  Serial.println();
+}
+//char rx_byte = 0;
 
 void setup()
 {
   Serial.begin(9600);
   pinMode(BUTTON, INPUT);
-
+  pinMode(SPEAKER, OUTPUT);
   initMorse(BUTTON, PULSE_THRESHOLD, LETTER_SEPARATION, WORD_SEPARATION);
 
-//  initLCD(LCD_COLUMNS, LCD_ROWS, LCD_PINS);
+
 }
 
-void loop()
-{
+
+
+void loop() {
   // used to skip the first space
   static boolean firstLoop = true;
-
+//    rx_byte = Serial.read();
   char c = getNextChar();
+
 
   if (firstLoop)
   {
@@ -32,7 +95,10 @@ void loop()
   }
 
   Serial.print(c);
+  blink_string(" HELLO");
 }
+
+
 
 
 
@@ -275,12 +341,11 @@ char getNextChar()
   {
     symbolCount++;
     boolean currentSymbol = getNextSymbol();
-//    Serial.println(currentSymbol == DOT ? "DOT" : "DASH");
+    //    Serial.println(currentSymbol == DOT ? "DOT" : "DASH");
     if (currentSymbol == DOT)
       current = current -> dotChild;
     else
       current = current -> dashChild;
-
     if (current == NULL)
       return '-';
 
