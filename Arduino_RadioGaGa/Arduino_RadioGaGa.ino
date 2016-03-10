@@ -1,91 +1,58 @@
-#define BUTTON 2
-#define SPEAKER 4
-#define TONE 4000
+#include "Adafruit_FONA.h"
+#define FONA_RX 2
+#define FONA_TX 3
+#define FONA_RST 4
+
+#define BUTTON 13
 #define PULSE_THRESHOLD 200
 #define LETTER_SEPARATION 500
-#define WORD_SEPARATION 3000
-#define SPEED 300
+#define WORD_SEPARATION 2000
 
+#include <SoftwareSerial.h>
+SoftwareSerial fonaSS = SoftwareSerial(FONA_TX, FONA_RX);
+SoftwareSerial *fonaSerial = &fonaSS;
+Adafruit_FONA fona = Adafruit_FONA(FONA_RST);
 
-const int led = 4;
-enum { SHORT, LONG, OFF };
-
-const byte morse_dict[26][4] = {
-  { SHORT, LONG,  OFF,   OFF   }, // a
-  { LONG,  SHORT, SHORT, SHORT }, // b
-  { LONG,  SHORT, LONG,  SHORT }, // c
-  { LONG,  SHORT, SHORT, OFF   }, // d
-  { SHORT, OFF,   OFF,   OFF   }, // e
-  { SHORT, SHORT, LONG,  SHORT }, // f
-  { LONG,  LONG,  SHORT, OFF   }, // g
-  { SHORT, SHORT, SHORT, SHORT }, // h
-  { SHORT, SHORT, OFF,   OFF   }, // i
-  { SHORT, LONG,  LONG,  LONG  }, // j
-  { LONG,  SHORT, LONG,  OFF   }, // k
-  { SHORT, LONG,  SHORT, SHORT }, // l
-  { LONG,  LONG,  OFF,   OFF   }, // m
-  { LONG,  SHORT, OFF,   OFF   }, // n
-  { LONG,  LONG,  LONG,  OFF   }, // o
-  { SHORT, LONG,  LONG,  SHORT }, // p
-  { LONG,  LONG,  SHORT, LONG  }, // q
-  { SHORT, LONG,  SHORT, OFF   }, // r
-  { SHORT, SHORT, SHORT, OFF   }, // s
-  { LONG,  OFF,   OFF,   OFF   }, // t
-  { SHORT, SHORT, LONG,  OFF   }, // u
-  { SHORT, SHORT, SHORT, LONG  }, // v
-  { SHORT, LONG,  LONG,  OFF   }, // w
-  { LONG,  SHORT, SHORT, LONG  }, // x
-  { LONG,  SHORT, LONG,  LONG  }, // y
-  { LONG,  LONG,  SHORT, SHORT }, // z
-};
-
-void blink_letter(const char letter) {
-  for (byte i = 0; i < 4; i++) {
-    switch (morse_dict[letter - 97][i]) {
-      case SHORT:
-        digitalWrite(led, HIGH); delay(500);
-        digitalWrite(led, LOW);  delay(500 + SPEED);
-        break;
-      case LONG:
-        digitalWrite(led, HIGH); delay(750);
-        digitalWrite(led, LOW);  delay(750 + SPEED);
-        break;
-      case OFF:
-        digitalWrite(led, LOW);
-        break;
-    }
-  }
-}
-
-void blink_string(const char *str) {
-  unsigned int i = 0;
-
-  while (str[i++] != '\0') {
-    Serial.print(str[i]);
-    blink_letter(str[i]);
-  }
-  Serial.println();
-}
-//char rx_byte = 0;
-
+uint8_t readline(char *buff, uint8_t maxbuff, uint16_t timeout = 0);
+uint8_t type;
 void setup()
 {
+
+  while (!Serial);
   Serial.begin(9600);
+
+
+    Serial.println(F("FONA basic test"));
+  Serial.println(F("Initializing....(May take 3 seconds)"));
+
+  fonaSerial->begin(4800);
+  if (! fona.begin(*fonaSerial)) {
+    Serial.println(F("Couldn't find FONA"));
+    while (1);
+  }
+  type = fona.type();
+  Serial.println(F("FONA is OK"));
+  Serial.print(F("Found "));
+
+  char imei[15] = {0}; // MUST use a 16 character buffer for IMEI!
+  uint8_t imeiLen = fona.getIMEI(imei);
+    if (imeiLen > 0) {
+    Serial.print("Module IMEI: "); Serial.println(imei);
+  }
+
   pinMode(BUTTON, INPUT);
-  pinMode(SPEAKER, OUTPUT);
   initMorse(BUTTON, PULSE_THRESHOLD, LETTER_SEPARATION, WORD_SEPARATION);
 
 
+
 }
 
-
-
-void loop() {
+void loop()
+{
   // used to skip the first space
   static boolean firstLoop = true;
-//    rx_byte = Serial.read();
-  char c = getNextChar();
 
+  char c = getNextChar();
 
   if (firstLoop)
   {
@@ -95,10 +62,18 @@ void loop() {
   }
 
   Serial.print(c);
-  blink_string(" HELLO");
+  
+  switch(c) {
+    case 'A': {
+    uint16_t vbat;
+        if (! fona.getBattPercent(&vbat)) {
+          Serial.println(F("Failed to read Batt"));
+        } else {
+          Serial.print(F("VPct = ")); Serial.print(vbat); Serial.println(F("%"));
+        }
+    }
+    }
 }
-
-
 
 
 
@@ -341,11 +316,12 @@ char getNextChar()
   {
     symbolCount++;
     boolean currentSymbol = getNextSymbol();
-    //    Serial.println(currentSymbol == DOT ? "DOT" : "DASH");
+//    Serial.println(currentSymbol == DOT ? "DOT" : "DASH");
     if (currentSymbol == DOT)
       current = current -> dotChild;
     else
       current = current -> dashChild;
+
     if (current == NULL)
       return '-';
 
