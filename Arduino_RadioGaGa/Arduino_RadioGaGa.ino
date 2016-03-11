@@ -51,6 +51,7 @@ void setup()
 }
 
 char message[141];
+int i = 0;
 
 void loop()
 {
@@ -68,11 +69,13 @@ void loop()
     if (c == ' ')
       return;
   }
-  for (int i = 0; i< 140; i++){
    message[i] = c; 
-  }
-  Serial.print(message);
+  i++;
+//  Serial.println(sizeof(message));
   
+  Serial.println(message);
+
+  if (c == '.')  {
   char sendto[21], 
   flushSerial();
   Serial.print(F("Send to #"));
@@ -85,7 +88,7 @@ void loop()
           Serial.println(F("Sent!"));
         }
 
-
+  }
 
 }
 
@@ -277,6 +280,7 @@ void addAlphabet(struct MorseTree *tree)
     {'X', {DASH, DOT, DOT, DASH}, 4},
     {'Y', {DASH, DOT, DASH, DASH}, 4},
     {'Z', {DASH, DASH, DOT, DOT}, 4},
+    {'~', {DASH, DASH, DASH, DASH}, 4},
   };
 
   addTreeMembers(tree, data, 26);
