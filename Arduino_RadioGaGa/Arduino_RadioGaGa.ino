@@ -7,8 +7,11 @@
 #define PULSE_THRESHOLD 200
 #define LETTER_SEPARATION 500
 #define WORD_SEPARATION 2000
+#define TEXT_SEPARATION 4000 
 
 #include <SoftwareSerial.h>
+
+char replybuffer[255];
 SoftwareSerial fonaSS = SoftwareSerial(FONA_TX, FONA_RX);
 SoftwareSerial *fonaSerial = &fonaSS;
 Adafruit_FONA fona = Adafruit_FONA(FONA_RST);
@@ -41,11 +44,13 @@ void setup()
   }
 
   pinMode(BUTTON, INPUT);
-  initMorse(BUTTON, PULSE_THRESHOLD, LETTER_SEPARATION, WORD_SEPARATION);
+  initMorse(BUTTON, PULSE_THRESHOLD, LETTER_SEPARATION, WORD_SEPARATION, TEXT_SEPARATION);
 
 
 
 }
+
+char message[141];
 
 void loop()
 {
@@ -53,6 +58,9 @@ void loop()
   static boolean firstLoop = true;
 
   char c = getNextChar();
+//  String phoneNumber = "9293008548";
+//  char reading = ();
+  
 
   if (firstLoop)
   {
@@ -60,20 +68,98 @@ void loop()
     if (c == ' ')
       return;
   }
-
-  Serial.print(c);
+  for (int i = 0; i< 140; i++){
+   message[i] = c; 
+  }
+  Serial.print(message);
   
-  switch(c) {
-    case 'A': {
-    uint16_t vbat;
-        if (! fona.getBattPercent(&vbat)) {
-          Serial.println(F("Failed to read Batt"));
+  char sendto[21], 
+  flushSerial();
+  Serial.print(F("Send to #"));
+  readline(sendto, 20);
+  Serial.println(sendto);
+  Serial.print(F("Type out one-line message (140 char): "));
+  if (!fona.sendSMS(sendto, message)) {
+          Serial.println(F("Failed"));
         } else {
-          Serial.print(F("VPct = ")); Serial.print(vbat); Serial.println(F("%"));
+          Serial.println(F("Sent!"));
         }
-    }
-    }
+
+
+
 }
+
+
+void flushSerial() {
+  while (Serial.available())
+    Serial.read();
+}
+
+
+uint16_t readnumber() {
+  uint16_t x = 0;
+  char c;
+  while (! isdigit(c = readBlocking())) {
+    //Serial.print(c);
+  }
+  Serial.print(c);
+  x = c - '0';
+  while (isdigit(c = readBlocking())) {
+    Serial.print(c);
+    x *= 10;
+    x += c - '0';
+  }
+  return x;
+}
+
+
+uint8_t readline(char *buff, uint8_t maxbuff, uint16_t timeout) {
+  uint16_t buffidx = 0;
+  boolean timeoutvalid = true;
+  if (timeout == 0) timeoutvalid = false;
+
+  while (true) {
+    if (buffidx > maxbuff) {
+      //Serial.println(F("SPACE"));
+      break;
+    }
+
+    while (Serial.available()) {
+      char c =  Serial.read();
+
+      Serial.print(c, HEX); Serial.print("#"); Serial.println(c);
+
+      if (c == '\r') continue;
+      if (c == 0xA) {
+        if (buffidx == 0)   // the first 0x0A is ignored
+          continue;
+
+        timeout = 0;         // the second 0x0A is the end of the line
+        timeoutvalid = true;
+        break;
+      }
+      buff[buffidx] = c;
+      buffidx++;
+    }
+
+    if (timeoutvalid && timeout == 0) {
+      //Serial.println(F("TIMEOUT"));
+      break;
+    }
+    delay(1);
+  }
+  buff[buffidx] = 0;  // null term
+  return buffidx;
+}
+
+
+
+
+char readBlocking() {
+  while (!Serial.available());
+  return Serial.read();
+}
+
 
 
 
@@ -90,14 +176,16 @@ int button = -1;
 int pulseThreshold = 0;
 int letterSeparation = 0;
 int wordSeparation = 0;
+int textSeparation = 0;
 
-void initMorse(int lbutton, int lpulseThreshold, int lletterSeparation, int lwordSeparation)
+void initMorse(int lbutton, int lpulseThreshold, int lletterSeparation, int lwordSeparation, int ltextSeparation)
 {
   tree = generateMorseTree();
   button = lbutton;
   pulseThreshold = lpulseThreshold;
   letterSeparation = lletterSeparation;
   wordSeparation = lwordSeparation;
+  textSeparation = ltextSeparation;
 }
 
 
@@ -295,6 +383,20 @@ boolean shouldBeSpace()
 
   return false;
 }
+
+boolean shouldSend()
+{
+  unsigned long start = millis();
+  while (digitalRead(BUTTON) == LOW)
+  {
+    if (millis() - start > textSeparation)
+      return true;
+  }
+
+  return false;
+}
+
+
 
 char getNextChar()
 {
