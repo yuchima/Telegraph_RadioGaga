@@ -35,12 +35,13 @@ void setup()
   }
   type = fona.type();
   Serial.println(F("FONA is OK"));
-  Serial.print(F("Found "));
+//  Serial.print(F("Found "));
 
   char imei[15] = {0}; // MUST use a 16 character buffer for IMEI!
   uint8_t imeiLen = fona.getIMEI(imei);
     if (imeiLen > 0) {
-    Serial.print("Module IMEI: "); Serial.println(imei);
+//    Serial.print("Module IMEI: "); Serial.println(imei);
+    Serial.println("Type the message by Telegraphy Key:");
   }
 
   pinMode(BUTTON, INPUT);
@@ -72,7 +73,7 @@ void loop()
    message[i] = c; 
   i++;
 //  Serial.println(sizeof(message));
-  
+
   Serial.println(message);
 
   if (c == '.')  {
@@ -89,6 +90,70 @@ void loop()
         }
 
   }
+
+  if (c == '?')  {
+  // read all SMS
+        int8_t smsnum = fona.getNumSMS();
+        uint16_t smslen;
+        int8_t smsn;
+
+        if ( (type == FONA3G_A) || (type == FONA3G_E) ) {
+          smsn = 0; // zero indexed
+          smsnum--;
+        } else {
+          smsn = 1;  // 1 indexed
+        }
+
+        for ( ; smsn <= smsnum; smsn++) {
+          Serial.print(F("\n\rReading SMS #")); Serial.println(smsn);
+          if (!fona.readSMS(smsn, replybuffer, 250, &smslen)) {  // pass in buffer and max len!
+            Serial.println(F("Failed!"));
+            break;
+          }
+          // if the length is zero, its a special case where the index number is higher
+          // so increase the max we'll look at!
+          if (smslen == 0) {
+            Serial.println(F("[empty slot]"));
+            smsnum++;
+            continue;
+          }
+
+          Serial.print(F("***** SMS #")); Serial.print(smsn);
+          Serial.print(" ("); Serial.print(smslen); Serial.println(F(") bytes *****"));
+          Serial.println(replybuffer);
+          Serial.println(F("*****"));
+        }
+  }
+
+    if (c == '{')  {
+      flushSerial();
+        Serial.print(F("FM Freq (eg 1011 == 101.1 MHz): "));
+        uint16_t station = readnumber();
+        Serial.println();
+        // FM radio ON using headset
+        if (fona.FMradio(true, FONA_HEADSETAUDIO)) {
+          Serial.println(F("Opened"));
+        }
+        if (! fona.tuneFMradio(station)) {
+          Serial.println(F("Failed"));
+        } else {
+          Serial.println(F("Tuned"));
+        }
+    }
+
+
+        if (c == '}')  {
+        if (! fona.FMradio(false)) {
+          Serial.println(F("Failed"));
+        } else {
+          Serial.println(F("OK!"));
+        }
+
+
+
+        }
+    
+
 
 }
 
@@ -280,7 +345,6 @@ void addAlphabet(struct MorseTree *tree)
     {'X', {DASH, DOT, DOT, DASH}, 4},
     {'Y', {DASH, DOT, DASH, DASH}, 4},
     {'Z', {DASH, DASH, DOT, DOT}, 4},
-    {'~', {DASH, DASH, DASH, DASH}, 4},
   };
 
   addTreeMembers(tree, data, 26);
@@ -310,9 +374,11 @@ void addPunctuation(struct MorseTree *tree)
     {'.', {DOT, DASH, DOT, DASH, DOT, DASH}, 6},
     {',', {DASH, DASH, DOT, DOT, DASH, DASH}, 6},
     {'?', {DOT, DOT, DASH, DASH, DOT, DOT}, 6},
+    {'{', {DOT, DOT, DOT, DOT, DASH, DASH}, 6},
+    {'}', {DASH, DASH, DASH, DASH, DOT, DOT}, 6},
   };
 
-  addTreeMembers(tree, data, 3);
+  addTreeMembers(tree, data, 5);
 }
 
 struct MorseTree *generateMorseTree()
