@@ -22,7 +22,7 @@ void setup()
 {
 
   while (!Serial);
-  Serial.begin(9600);
+  Serial.begin(115200);
 
 
     Serial.println(F("FONA basic test"));
@@ -79,16 +79,19 @@ void loop()
   if (c == '.')  {
   char sendto[21], 
   flushSerial();
-  Serial.print(F("Send to #"));
-  readline(sendto, 20);
-  Serial.println(sendto);
+//  Serial.print(F("Send to #"));
+//  readline(sendto, 20);
+//  Serial.println(sendto);
   Serial.print(F("Type out one-line message (140 char): "));
-  if (!fona.sendSMS(sendto, message)) {
+  if (!fona.sendSMS("9293008548", message)) {
           Serial.println(F("Failed"));
         } else {
           Serial.println(F("Sent!"));
+          for( int i = 0; i < 141;  i++ ){
+           message[i] = (char)0;
+          }
+          i = 0;
         }
-
   }
 
   if (c == '?')  {
@@ -126,9 +129,11 @@ void loop()
   }
 
     if (c == '{')  {
-      flushSerial();
-        Serial.print(F("FM Freq (eg 1011 == 101.1 MHz): "));
-        uint16_t station = readnumber();
+      //turn on FM radio
+//      flushSerial();
+//      Serial.print(F("FM Freq (eg 1011 == 101.1 MHz): "));
+//      uint16_t station = readnumber();
+        uint16_t station = 1011;
         Serial.println();
         // FM radio ON using headset
         if (fona.FMradio(true, FONA_HEADSETAUDIO)) {
